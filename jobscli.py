@@ -1,5 +1,7 @@
 import typer
 import requests
+import re
+import csv
 
 url = "https://api.itjobs.pt/job"
 api_key = "22f572f4c8057d196327a8ce71c85bd7"
@@ -9,14 +11,15 @@ headers = {
 payload = {}
 
 app=typer.Typer()
-    
-@app.command()
-def teste(n: int):
-    url_teste = f"{url}/list.json?api_key={api_key}&limit={n}"
-    response = requests.request("GET",url_teste, headers=headers, data=payload)
-    res=response.json()
-    print(res.get('limit'))
-    print(res['results'])
-    
 
+def request_api(metodo: str, params: dict) -> dict:
+    params['api_key'] = api_key
+    response = requests.get(f"{url}/{metodo}.json", headers=headers, params=params)
+    if response.status_code == 200:
+        return response.json()
+    else:
+        typer.echo(f"Erro ao acessar a API: {response.status_code}")
+        return {}
+
+    
 app()
