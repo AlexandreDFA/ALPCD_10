@@ -1,7 +1,6 @@
 import typer
 import requests
 import re
-import csv
 
 url = "https://api.itjobs.pt/job"
 api_key = "22f572f4c8057d196327a8ce71c85bd7"
@@ -21,5 +20,21 @@ def request_api(metodo: str, params: dict) -> dict:
         typer.echo(f"Erro ao acessar a API: {response.status_code}")
         return {}
 
-    
+@app.command()
+def top(n: int):
+    params={
+        "limit":n
+    }
+    response=request_api('list',params)
+    typer.echo(response['results'])
+
+@app.command()
+def salary(jobid: int):
+    params={
+        "id":jobid
+    }
+    response=request_api('get',params)
+    typer.echo(response)
+    if response['wage'] == None:
+        print('a')
 app()
