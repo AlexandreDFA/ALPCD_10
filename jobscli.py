@@ -1,4 +1,6 @@
 import typer
+import csv
+import re
 import requests
 from datetime import datetime
 
