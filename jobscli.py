@@ -13,32 +13,43 @@ app=typer.Typer()
 
 def request_api(metodo, params):
     params['api_key'] = api_key
-    tamanho_pagina = 100
-    total = params.get('limit', 1500)
 
-    if total < tamanho_pagina:
-        tamanho_pagina = total
+    if 'limit' in params:
+        tamanho_pagina = 200
+        total = params['limit']
 
-    paginas_totais = (total // tamanho_pagina) + (1 if total % tamanho_pagina != 0 else 0)
-    resultado = []
+        if total < tamanho_pagina:
+            tamanho_pagina = total
 
-    for page in range(1, paginas_totais + 1):
-        params['limit'] = tamanho_pagina
-        params['page'] = page
+        paginas_totais = (total // tamanho_pagina) + (1 if total % tamanho_pagina != 0 else 0)
+        resultado = []
 
+        for page in range(1, paginas_totais + 1):
+            params['limit'] = tamanho_pagina
+            params['page'] = page
+
+            response = requests.get(f"{url}/{metodo}.json", headers=headers, params=params)
+
+            if response.status_code == 200:
+                response_data = response.json()
+                if 'results' in response_data:
+                    resultado.extend(response_data['results'])
+                if len(resultado) >= total:
+                    break
+            else:
+                print(f"Erro ao acessar a API: {response.status_code}")
+                return {}
+
+        return {"results": resultado}
+
+    else:
         response = requests.get(f"{url}/{metodo}.json", headers=headers, params=params)
 
         if response.status_code == 200:
-            response = response.json()
-            if 'results' in response:
-                resultado.extend(response['results'])
-            if len(resultado) >= total:
-                break
+            return response.json()
         else:
-            typer.echo(f"Erro ao acessar a API: {response.status_code}")
+            print(f"Erro ao acessar a API: {response.status_code}")
             return {}
-
-    return {"results": resultado}
 
 #e)Para cada uma das funcionalidades (a), (b) e (d) deve poder exportar para CSV a informacao com os seguintes campo:
 #titulo;empresa;descricao;data_de_publicacao;salario;localizacao.
@@ -46,7 +57,6 @@ def cria_csv(dados, nome_arquivo='trabalhos.csv'):
     with open(nome_arquivo, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
         
-        # Cabeçalho do CSV
         writer.writerow(['Título', 'Empresa', 'Descrição', 'Data_De_Publicação', 'Salário', 'Localização'])
         
         for trabalho in dados.get('results'):
@@ -68,7 +78,7 @@ def cria_csv(dados, nome_arquivo='trabalhos.csv'):
             
             writer.writerow(linha)
     
-    typer.echo(f"Dados exportados para {nome_arquivo}")
+    print(f"Dados exportados para {nome_arquivo}")
 
 #b)Listar todos os trabalhos do tipo full-time, publicados por uma determinada empresa, numa determinada localidade e determinado numero.
 #python trabalhoscli.py search Braga EmpresaX 4
@@ -79,6 +89,7 @@ def search(localidade: str, empresa: str, limit: int, csv: bool = False):
     '''
 
     params = {
+        'limit': 1500,
         'type': '1'
     }
 
@@ -94,13 +105,13 @@ def search(localidade: str, empresa: str, limit: int, csv: bool = False):
         trabalhos_filtrados = trabalhos_filtrados[:limit]
 
         if trabalhos_filtrados:
-            typer.echo(trabalhos_filtrados)
-            typer.echo(f"Encontrados {len(trabalhos_filtrados)} resultados para a empresa '{empresa}' na localidade '{localidade}'.")
+            print(trabalhos_filtrados)
+            print(f"Encontrados {len(trabalhos_filtrados)} resultados para a empresa '{empresa}' na localidade '{localidade}'.")
             if csv:
                 cria_csv({'results': trabalhos_filtrados})
         else:
-            typer.echo(f"Nenhum resultado encontrado para a empresa '{empresa}' na localidade '{localidade}'.")
+            print(f"Nenhum resultado encontrado para a empresa '{empresa}' na localidade '{localidade}'.")
     else:
-        typer.echo("Nenhum resultado encontrado.")
+        print("Nenhum resultado encontrado.")
 
 app()
