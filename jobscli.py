@@ -232,25 +232,27 @@ def salary(jobid: int):
     if not response:
         print("Não foi possível obter os dados do job.")
         return
-    
-    wage = response.get('wage')
-    
-    if wage is not None:
-        # Se o campo 'wage' não for nulo, exibe o salário
-        print(f"Salário: {wage}")
+    elif "error" in response:
+        print(f"Erro: A vaga com o ID {jobid} não foi encontrada.")
     else:
-        # Caso 'wage' seja nulo, procurar no corpo da descrição usando regex
-        print("Salário não especificado")
-        body = response.get('body', '')
+        wage = response.get('wage')
         
-        # expressão regular simples para procurar salários(491805,491581,490897,491330)
-        match = re.search(r"([€$R]\s?)([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[\–e]\s?([€$R]\s?[0-9]{1,10}([\.,][0-9]{2,3})*))?(/[a-zA-Z]* [a-zA-Z]*)?|([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[€$R])(\s?[\–e]\s?([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[€$R]))?(/[a-zA-Z]* [a-zA-Z]*)?", body)
-        
-        if match:
-            salary_found = match.group(0)
-            print(f"Salário encontrado na descrição: {salary_found}")
+        if wage is not None:
+            # Se o campo 'wage' não for nulo, exibe o salário
+            print(f"Salário: {wage}")
         else:
-            print("Salário não encontrado na descrição.")        
+            # Caso 'wage' seja nulo, procurar no corpo da descrição usando regex
+            print("Salário não especificado")
+            body = response.get('body', '')
+            
+            # expressão regular simples para procurar salários(491805,491581,490897,491330)
+            match = re.search(r"([€$R]\s?)([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[\–e]\s?([€$R]\s?[0-9]{1,10}([\.,][0-9]{2,3})*))?(/[a-zA-Z]* [a-zA-Z]*)?|([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[€$R])(\s?[\–e]\s?([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[€$R]))?(/[a-zA-Z]* [a-zA-Z]*)?", body)
+            
+            if match:
+                salary_found = match.group(0)
+                print(f"Salário encontrado na descrição: {salary_found}")
+            else:
+                print("Salário não encontrado na descrição.")       
         
 app()
 
