@@ -16,7 +16,7 @@ def request_api(metodo, params):
     params['api_key'] = api_key
 
     if 'limit' in params:
-        tamanho_pagina = 200
+        tamanho_pagina = 500
         total = params['limit']
 
         if total < tamanho_pagina:
@@ -36,6 +36,8 @@ def request_api(metodo, params):
                 if 'results' in response_data:
                     resultado.extend(response_data['results'])
                 if len(resultado) >= total:
+                    break
+                if len(response_data['results']) < tamanho_pagina:
                     break
             else:
                 print(f"Erro ao acessar a API: {response.status_code}")
@@ -213,6 +215,8 @@ def top(n: int,csv: bool = False):
     }
     response=request_api('list',params)
     print(response['results'])
+    if len(response['results'])<n:
+        print(f"Só existem {len(response['results'])} atualmente")
     if csv:
         cria_csv(response)
 
@@ -239,8 +243,8 @@ def salary(jobid: int):
         print("Salário não especificado")
         body = response.get('body', '')
         
-        # expressão regular simples para procurar salários
-        match = re.search(r"(\d{1,3}(?:,\d{3})*)\s*(?:€|\$|USD|£|₹|K)", body)
+        # expressão regular simples para procurar salários(491805,491581,490897,491330)
+        match = re.search(r"([€$R]\s?)([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[\–e]\s?([€$R]\s?[0-9]{1,10}([\.,][0-9]{2,3})*))?(/[a-zA-Z]* [a-zA-Z]*)?|([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[€$R])(\s?[\–e]\s?([0-9]{1,10}([\.,][0-9]{2,3})*)(\s?[€$R]))?(/[a-zA-Z]* [a-zA-Z]*)?", body)
         
         if match:
             salary_found = match.group(0)
