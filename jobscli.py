@@ -114,11 +114,12 @@ def search(localidade: str, empresa: str, limit: int, csv: bool = False):
             print(f"Nenhum resultado encontrado para a empresa '{empresa}' na localidade '{localidade}'.")
     else:
         print("Nenhum resultado encontrado.")
+
 #alinea d)
 #procura trabalhos que requerem determinadas skills e que foram publicadas num determinado intervalo de tempo
 #valida as datas, pede dados à API para procurar trabalhos com os filtros do utilizador, mostra a msg
 @app.command()
-def skills(skills: list[str], data_inicial: str, data_final: str):
+def skills(skills: list[str], data_inicial: str, data_final: str,csv: bool = False):
     """
     Mostra trabalhos que requerem uma lista de skills num determinado período de tempo.
     """
@@ -126,11 +127,11 @@ def skills(skills: list[str], data_inicial: str, data_final: str):
         data_inicial_dt = datetime.strptime(data_inicial, "%Y-%m-%d")
         data_final_dt = datetime.strptime(data_final, "%Y-%m-%d")
     except ValueError: #isto caso as datas nao estejam no formato correto 
-        typer.echo("Erro: As datas devem estar no formato 'YYYY-MM-DD'.")
+        print("Erro: As datas devem estar no formato 'YYYY-MM-DD'.")
         return
 
     if data_inicial_dt>data_final_dt: #verificação de coenrência 
-        typer.echo("Erro: A data inicial não pode ser posterior à data final.")
+        print("Erro: A data inicial não pode ser posterior à data final.")
         return
 
     trabalhos_filtrados = [] #armazenamento dos trabalhos q requerem aquelas skills
@@ -143,7 +144,7 @@ def skills(skills: list[str], data_inicial: str, data_final: str):
     trabalhos = request_api("search", params) #verificacao do 200
 
     if not trabalhos or "results" not in trabalhos:
-        typer.echo("Nenhum resultado encontrado ou erro na API.")
+        print("Nenhum resultado encontrado ou erro na API.")
         return #se der erro
       
     for trabalho in trabalhos["results"]: #percorre se tds os trabalhos
@@ -153,20 +154,25 @@ def skills(skills: list[str], data_inicial: str, data_final: str):
 
     if trabalhos_filtrados:
         trabalhos_filtrados = {"results": trabalhos_filtrados}  # Formato esperado pela função cria_csv
-        typer.echo(trabalhos_filtrados)  # Exibe os trabalhos filtrados
+        print(trabalhos_filtrados) # Exibe os trabalhos filtrados
+        if csv:
+            cria_csv(trabalhos_filtrados)
     else:
-        typer.echo("Nenhum trabalho encontrado no período especificado.")
+        print("Nenhum trabalho encontrado no período especificado.")
 
 #mostra detalhes de uma vaga especifica 
 #recebe o id de um rabalho, solicia à API, imprime os detalhes da vaga 
 @app.command()
 def detalhes(job_id: int): #parametro q representa o id da vaga 
+    '''
+    Detalhes sobre uma vaga de trabalho
+    '''
     params={
             "id":job_id
     } #dicionario para identificar a vaga para a solicitação à API 
     trabalho=request_api("get",params)
     if "error" in trabalho:
-        print("O id do trabalho não existe!")
+        print(f"Erro: A vaga com o ID {job_id} não foi encontrada.")
     else:
         print(trabalho) #título, descrição, requisitos, empresa, localização, salário...
       
@@ -174,6 +180,9 @@ def detalhes(job_id: int): #parametro q representa o id da vaga
 #definir os parametros, filtra as vagas, faz a contagem
 @app.command()
 def contar_vagas_localizacao(localizacao: str): #parametro dado pelo usuário
+    '''
+    Número de vagas por localização
+    '''
     params={
         "limit":1500
     }
@@ -190,38 +199,44 @@ def contar_vagas_localizacao(localizacao: str): #parametro dado pelo usuário
     # Conta o número total de vagas na localização
     numero_de_vagas = len(vagas_na_localizacao) #conta o nº total de vagas encontradas
     if numero_de_vagas > 0:
-        typer.echo(f"Há {numero_de_vagas} vagas disponíveis em {localizacao}.")
+        print(f"Há {numero_de_vagas} vagas disponíveis em {localizacao}.")
     else:
-        typer.echo(f"Não há vagas disponíveis em {localizacao}.")
-
+        print(f"Não há vagas disponíveis em {localizacao}.")
 
 @app.command()
-def top(n: int):
+def top(n: int,csv: bool = False):
+    '''
+    N trabalhos mais recentes
+    '''
     params={
         "limit":n
     }
     response=request_api('list',params)
-    typer.echo(response['results'])
-
+    print(response['results'])
+    if csv:
+        cria_csv(response)
 
 @app.command()
 def salary(jobid: int):
+    '''
+    Salário de um trabalho especifico
+    '''
     params={
         "id":jobid
     }
     response=request_api('get',params)
     if not response:
-        typer.echo("Não foi possível obter os dados do job.")
+        print("Não foi possível obter os dados do job.")
         return
     
     wage = response.get('wage')
     
     if wage is not None:
         # Se o campo 'wage' não for nulo, exibe o salário
-        typer.echo(f"Salário: {wage}")
+        print(f"Salário: {wage}")
     else:
         # Caso 'wage' seja nulo, procurar no corpo da descrição usando regex
-        typer.echo("Salário não especificado")
+        print("Salário não especificado")
         body = response.get('body', '')
         
         # expressão regular simples para procurar salários
@@ -229,9 +244,9 @@ def salary(jobid: int):
         
         if match:
             salary_found = match.group(0)
-            typer.echo(f"Salário encontrado na descrição: {salary_found}")
+            print(f"Salário encontrado na descrição: {salary_found}")
         else:
-            typer.echo("Salário não encontrado na descrição.")        
+            print("Salário não encontrado na descrição.")        
         
 app()
 
