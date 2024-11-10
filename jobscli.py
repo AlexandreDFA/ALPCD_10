@@ -145,7 +145,7 @@ def skills(skills: list[str], data_inicial: str, data_final: str):
     if not trabalhos or "results" not in trabalhos:
         typer.echo("Nenhum resultado encontrado ou erro na API.")
         return #se der erro
-
+      
     for trabalho in trabalhos["results"]: #percorre se tds os trabalhos
         published_at_dt = datetime.strptime(trabalho["publishedAt"], "%Y-%m-%d %H:%M:%S") #converte se a data de publicação
         if data_inicial_dt <= published_at_dt <= data_final_dt:
@@ -195,4 +195,44 @@ def contar_vagas_localizacao(localizacao: str): #parametro dado pelo usuário
         typer.echo(f"Não há vagas disponíveis em {localizacao}.")
 
 
+@app.command()
+def top(n: int):
+    params={
+        "limit":n
+    }
+    response=request_api('list',params)
+    typer.echo(response['results'])
+
+
+@app.command()
+def salary(jobid: int):
+    params={
+        "id":jobid
+    }
+    response=request_api('get',params)
+    if not response:
+        typer.echo("Não foi possível obter os dados do job.")
+        return
+    
+    wage = response.get('wage')
+    
+    if wage is not None:
+        # Se o campo 'wage' não for nulo, exibe o salário
+        typer.echo(f"Salário: {wage}")
+    else:
+        # Caso 'wage' seja nulo, procurar no corpo da descrição usando regex
+        typer.echo("Salário não especificado")
+        body = response.get('body', '')
+        
+        # expressão regular simples para procurar salários
+        match = re.search(r"(\d{1,3}(?:,\d{3})*)\s*(?:€|\$|USD|£|₹|K)", body)
+        
+        if match:
+            salary_found = match.group(0)
+            typer.echo(f"Salário encontrado na descrição: {salary_found}")
+        else:
+            typer.echo("Salário não encontrado na descrição.")        
+        
 app()
+
+
