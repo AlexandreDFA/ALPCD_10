@@ -96,26 +96,29 @@ def search(localidade: str, empresa: str, limit: int, csv: bool = False):
         'type': '1'
     }
 
-    response = request_api('search', params)
+    if limit!=0:
+        response = request_api('search', params)
 
-    if 'results' in response:
-        trabalhos_filtrados = [
-            trabalho for trabalho in response['results']
-            if trabalho.get('company', {}).get('name', '').strip().lower() == empresa.strip().lower() and
-            any(loc.get('name', '').strip().lower() == localidade.strip().lower() for loc in trabalho.get('locations', []))
-        ]
+        if 'results' in response:
+            trabalhos_filtrados = [
+                trabalho for trabalho in response['results']
+                if trabalho.get('company', {}).get('name', '').strip().lower() == empresa.strip().lower() and
+                any(loc.get('name', '').strip().lower() == localidade.strip().lower() for loc in trabalho.get('locations', []))
+            ]
 
-        trabalhos_filtrados = trabalhos_filtrados[:limit]
+            trabalhos_filtrados = trabalhos_filtrados[:limit]
 
-        if trabalhos_filtrados:
-            print(trabalhos_filtrados)
-            print(f"Encontrados {len(trabalhos_filtrados)} resultados para a empresa '{empresa}' na localidade '{localidade}'.")
-            if csv:
-                cria_csv({'results': trabalhos_filtrados})
+            if trabalhos_filtrados:
+                print(trabalhos_filtrados)
+                print(f"Encontrados {len(trabalhos_filtrados)} resultados para a empresa '{empresa}' na localidade '{localidade}'.")
+                if csv:
+                    cria_csv({'results': trabalhos_filtrados})
+            else:
+                print(f"Nenhum resultado encontrado para a empresa '{empresa}' na localidade '{localidade}'.")
         else:
-            print(f"Nenhum resultado encontrado para a empresa '{empresa}' na localidade '{localidade}'.")
+            print("Nenhum resultado encontrado.")
     else:
-        print("Nenhum resultado encontrado.")
+        print("Limite 0")
 
 #alinea d)
 #procura trabalhos que requerem determinadas skills e que foram publicadas num determinado intervalo de tempo
@@ -139,28 +142,31 @@ def skills(skills: list[str], data_inicial: str, data_final: str,csv: bool = Fal
     trabalhos_filtrados = [] #armazenamento dos trabalhos q requerem aquelas skills
     skills = ','.join(skills) #as strings dadas na lista pelo usuário passam a ser unidas por virgulas 
 
-    params = {
-        'limit':1500,
-        "q": skills
-    } #dicionário q contem as skills
-    trabalhos = request_api("search", params) #verificacao do 200
+    if len(skills)==0:
+        params = {
+            'limit':1500,
+            "q": skills
+        } #dicionário q contem as skills
+        trabalhos = request_api("search", params) #verificacao do 200
 
-    if not trabalhos or "results" not in trabalhos:
-        print("Nenhum resultado encontrado ou erro na API.")
-        return #se der erro
-      
-    for trabalho in trabalhos["results"]: #percorre se tds os trabalhos
-        published_at_dt = datetime.strptime(trabalho["publishedAt"], "%Y-%m-%d %H:%M:%S") #converte se a data de publicação
-        if data_inicial_dt <= published_at_dt <= data_final_dt:
-            trabalhos_filtrados.append(trabalho) #adição do trabalho
+        if not trabalhos or "results" not in trabalhos:
+            print("Nenhum resultado encontrado ou erro na API.")
+            return #se der erro
+        
+        for trabalho in trabalhos["results"]: #percorre se tds os trabalhos
+            published_at_dt = datetime.strptime(trabalho["publishedAt"], "%Y-%m-%d %H:%M:%S") #converte se a data de publicação
+            if data_inicial_dt <= published_at_dt <= data_final_dt:
+                trabalhos_filtrados.append(trabalho) #adição do trabalho
 
-    if trabalhos_filtrados:
-        trabalhos_filtrados = {"results": trabalhos_filtrados}  # Formato esperado pela função cria_csv
-        print(trabalhos_filtrados) # Exibe os trabalhos filtrados
-        if csv:
-            cria_csv(trabalhos_filtrados)
+        if trabalhos_filtrados:
+            trabalhos_filtrados = {"results": trabalhos_filtrados}  # Formato esperado pela função cria_csv
+            print(trabalhos_filtrados) # Exibe os trabalhos filtrados
+            if csv:
+                cria_csv(trabalhos_filtrados)
+        else:
+            print("Nenhum trabalho encontrado no período especificado.")
     else:
-        print("Nenhum trabalho encontrado no período especificado.")
+        print("Lista de skills vazia!")
 
 #mostra detalhes de uma vaga especifica 
 #recebe o id de um rabalho, solicia à API, imprime os detalhes da vaga 
@@ -213,12 +219,15 @@ def top(n: int,csv: bool = False):
     params={
         "limit":n
     }
-    response=request_api('list',params)
-    print(response['results'])
-    if len(response['results'])<n:
-        print(f"Só existem {len(response['results'])} atualmente")
-    if csv:
-        cria_csv(response)
+    if n!=0:
+        response=request_api('list',params)
+        print(response['results'])
+        if len(response['results'])<n:
+            print(f"Só existem {len(response['results'])} atualmente")
+        if csv:
+            cria_csv(response)
+    else:
+        print("O número tem de ser maior do que 0!")
 
 @app.command()
 def salary(jobid: int):
