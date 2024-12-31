@@ -3,16 +3,27 @@ import csv
 import re
 import requests
 from datetime import datetime
+from bs4 import BeautifulSoup
 
-url = "https://api.itjobs.pt/job"
-api_key = "22f572f4c8057d196327a8ce71c85bd7"
 headers = {
-    'User-Agent': 'ALPC10'
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:98.0) Gecko/20100101 Fire-fox/98.0', 
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+    'Accept-Language':'en-US,en;q=0.5', 
+    'Accept-Encoding': 'gzip, deflate', 
+    'Connection': 'keep-alive', 
+    'Upgrade-Insecure-Requests': '1', 
+    'Sec-Fetch-Dest':'document', 
+    'Sec-Fetch-Mode': 'navigate', 
+    'Sec-Fetch-Site': 'none', 
+    'Sec-Fetch-User': '?1', 
+    'Cache-Control': 'max-age=0'
 }
 
 app=typer.Typer()
 
 def request_api(metodo, params):
+    url = "https://api.itjobs.pt/job"
+    api_key = "22f572f4c8057d196327a8ce71c85bd7"
     params['api_key'] = api_key
 
     if 'limit' in params:
@@ -54,6 +65,21 @@ def request_api(metodo, params):
             print(f"Erro ao acessar a API: {response.status_code}")
             return {}
 
+def request_website(url):
+    try:
+        response = requests.get(url, headers=headers)
+
+        if response.status_code == 200:
+            soup = BeautifulSoup(response.text, "lxml")
+            return soup
+        else:
+            print(f"Erro {response.status_code}")
+            return None
+
+    except requests.exceptions.RequestException as e:
+        print(f"Erro na requisição: {e}")
+        return None
+    
 #e)Para cada uma das funcionalidades (a), (b) e (d) deve poder exportar para CSV a informacao com os seguintes campo:
 #titulo;empresa;descricao;data_de_publicacao;salario;localizacao.
 def cria_csv(dados, nome_arquivo='trabalhos.csv'):
