@@ -4,6 +4,7 @@ import re
 import requests
 from datetime import datetime
 from bs4 import BeautifulSoup
+from playwright.sync_api import sync_playwright
 
 headers = {
     'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:98.0) Gecko/20100101 Fire-fox/98.0', 
@@ -288,7 +289,100 @@ def salary(jobid: int):
                 print(f"Salário encontrado na descrição: {salary_found}")
             else:
                 print("Salário não encontrado na descrição.")       
+
+#tp2c) Ir buscar skills ao website 
+@app.command()
+def list_skills(trabalho: str, guardar: bool = False):
+    skills_count = {}
+    trabalho = trabalho.lower().replace(" ", "-")
+    while True:
+        try:
+            total_trabalhos = int(input("Quantos trabalhos quer pesquisar no total? "))
+            if total_trabalhos > 0:
+                break
+            else:
+                print("Por favor, insira um número inteiro positivo.")
+        except ValueError:
+            print("Entrada inválida. Por favor, insira um número inteiro.")
+
+    paginas_necessarias = (total_trabalhos // 10) + (1 if total_trabalhos % 10 != 0 else 0)
+    lista_urls = []
+
+    for n in range(1, paginas_necessarias + 1):
+        soup = request_website(f'https://www.ambitionbox.com/jobs/{trabalho}-jobs-prf?page={n}')
+        links = soup.find_all('meta', itemprop="url")
+        urls = [link['content'] for link in links]
         
+        if not urls:
+            print("Nenhum URL válido encontrado. Encerrando a execução.")
+            return
+
+        urls.pop(0)
+        lista_urls.extend(urls)
+
+        if len(lista_urls) >= total_trabalhos:
+            lista_urls = lista_urls[:total_trabalhos]
+            break
+
+    print("URLs adquiridos.")
+    u = 1
+
+    for url in lista_urls:
+        with sync_playwright() as p:
+            browser = p.chromium.launch(headless=False)
+            context = browser.new_context(extra_http_headers=headers)
+            page = context.new_page()
+
+            try:
+                page.goto(url, wait_until="load")
+
+                more_button = page.query_selector(".chip.more")
+                if more_button:
+                    page.click(".chip.more")
+
+                skills_list = []
+                skills = page.query_selector_all(".body-medium.chip")
+                for skill in skills:
+                    skill_text = skill.inner_text()
+                    skills_list.append(skill_text)
+
+                for skill in skills_list:
+                    if skill in skills_count:
+                        skills_count[skill] += 1
+                    else:
+                        skills_count[skill] = 1
+
+                print(f"Skills do trabalho {u} adiquiridas.")
+                u += 1
+            except Exception as e:
+                print(f"Erro ao processar URL {url}: {e}")
+            finally:
+                browser.close()
+
+    skills_json = [{"skill": skill, "count": count} for skill, count in skills_count.items()]
+
+    skills_json = sorted(skills_json, key=lambda x: x['count'], reverse=True)
+    while True:
+        try:
+            top = int(input("Quantas skills? "))
+            if top > 0:
+                break
+            else:
+                print("Por favor, insira um número inteiro positivo.")
+        except ValueError:
+            print("Entrada inválida. Por favor, insira um número inteiro.")
+    skills_json = skills_json[:top]
+
+    print(skills_json)
+    if guardar:
+        csv_filename = f"{trabalho}-skills.csv"
+        with open(csv_filename, mode="w", newline="", encoding="utf-8") as file:
+            writer = csv.DictWriter(file, fieldnames=["skill", "count"])
+            writer.writeheader()
+            writer.writerows(skills_json)
+
+        print(f"Dados salvos em {csv_filename}")
+
 app()
 
 
