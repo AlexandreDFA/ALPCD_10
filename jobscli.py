@@ -595,7 +595,6 @@ def vagas_recomendadas(job_id: int, limit: int = 5):
     print(f"Localização: {job_data.get('locations', 'N/A')}")
     print(f"Descrição: {job_data.get('body', 'N/A')}")
 
-    print("\nA procura de vagas relacionadas...")
     title = job_data.get('title', '')
 
     if not title:
@@ -606,12 +605,12 @@ def vagas_recomendadas(job_id: int, limit: int = 5):
     words = title.split()
     query = ",".join(words)
 
-    print(f"A procura de vagas relacionadas com as palavras: {query}")
+    print(f"\nA procura de vagas relacionadas com as palavras: {query}")
     title_jobs_params = {"q": query, "limit": limit}  # Busca com palavras separadas por vírgula
     title_jobs_data = request_api("search", title_jobs_params)
 
     related_jobs = title_jobs_data.get("results", [])
-    unique_jobs = {job['id']: job for job in related_jobs}.values()
+    unique_jobs = {job['id']: job for job in related_jobs if job['id'] != job_id}.values()
 
     if not unique_jobs:
         print("Nenhuma vaga relacionada encontrada.")
