@@ -301,6 +301,84 @@ def salary(jobid: int):
             else:
                 print("Salário não encontrado na descrição.")       
 
+#tp2 b) mostrar contagem de vagas segundo especificacoes
+@app.command()
+def statistics(
+    mostrar: str = typer.Option(
+        "ambos", help="Escolha 'titulo' para nome do trabalho, 'tipo' para tipo de trabalho, ou 'ambos' para ambos."
+    ),
+    regiao: str = typer.Option(
+        None, help="Especifique a região para filtrar as vagas (opcional)."
+    )
+):
+    """Cria um CSV com contagem de vagas por zona, nome do trabalho ou tipo de trabalho, conforme a escolha do usuário."""
+    params = {"limit": 1500}
+    trabalhos = request_api("search", params)
+
+    if "results" not in trabalhos:
+        typer.echo("Não foi possível obter os dados dos trabalhos.")
+        return
+
+    # Dicionário para agrupar as vagas
+    vagas_por_zona = {}
+
+    for vaga in trabalhos["results"]:
+        # Zona
+        for loc in vaga.get("locations", []):
+            zona = loc["name"]
+
+            # Se uma região foi especificada, ignoramos as zonas que não correspondem
+            if regiao and regiao.lower() not in zona.lower():
+                continue
+
+            # Nome da vaga (título do trabalho)
+            nome_trabalho = vaga.get("title", "Não especificado")
+
+            # Tipo de trabalho
+            tipo_trabalho = ", ".join(t["name"] for t in vaga.get("types", [])) or "Não especificado"
+
+            if zona not in vagas_por_zona:
+                vagas_por_zona[zona] = {}
+
+            # Agrupamento com base na escolha do usuário
+            if mostrar == "titulo":
+                chave = nome_trabalho
+            elif mostrar == "tipo":
+                chave = tipo_trabalho
+            else:  # Se a escolha for "ambos", agrupamos por nome da vaga e tipo de trabalho
+                chave = (nome_trabalho, tipo_trabalho)
+
+            if chave not in vagas_por_zona[zona]:
+                vagas_por_zona[zona][chave] = 0
+
+            vagas_por_zona[zona][chave] += 1
+
+    # Gerando o CSV
+    import csv
+    with open("estatisticas_zona.csv", "w", newline="", encoding="utf-8") as csvfile:
+        writer = csv.writer(csvfile)
+
+        # Cabeçalho condicional
+        if mostrar == "titulo":
+            writer.writerow(["Zona", "Nome do Trabalho", "Nº de Vagas"])
+        elif mostrar == "tipo":
+            writer.writerow(["Zona", "Tipo de Trabalho", "Nº de Vagas"])
+        else:  # Se for "ambos", incluímos ambos os campos
+            writer.writerow(["Zona", "Nome do Trabalho", "Tipo de Trabalho", "Nº de Vagas"])
+
+        # Escrevendo os dados
+        for zona, trabalhos in vagas_por_zona.items():
+            for chave, count in trabalhos.items():
+                if mostrar == "ambos":
+                    nome_trabalho, tipo_trabalho = chave
+                    writer.writerow([zona, nome_trabalho, tipo_trabalho, count])
+                elif mostrar == "titulo":
+                    writer.writerow([zona, chave, count])
+                elif mostrar == "tipo":
+                    writer.writerow([zona, chave, count])
+
+    print("Ficheiro estatisticas_zona.csv criado com sucesso.")
+
 #tp2c) Ir buscar skills ao website 
 @app.command()
 def list_skills(trabalho: str, guardar: bool = False):
