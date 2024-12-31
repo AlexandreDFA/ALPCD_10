@@ -83,20 +83,23 @@ def request_website(url):
     
 #e)Para cada uma das funcionalidades (a), (b) e (d) deve poder exportar para CSV a informacao com os seguintes campo:
 #titulo;empresa;descricao;data_de_publicacao;salario;localizacao.
-def cria_csv(dados, nome_arquivo='trabalhos.csv'):
+#Funcao alterada para o tp2 para poder ter colunas extras dependendo da informacao
+def cria_csv(dados, nome_arquivo='trabalhos.csv', colunas_extra=None):
+    colunas_padrao = ['Título', 'Empresa', 'Descrição', 'Data_De_Publicação', 'Salário', 'Localização']
+    colunas = colunas_padrao + (colunas_extra if colunas_extra else [])
+
     with open(nome_arquivo, mode='w', newline='', encoding='utf-8') as file:
         writer = csv.writer(file)
-        
-        writer.writerow(['Título', 'Empresa', 'Descrição', 'Data_De_Publicação', 'Salário', 'Localização'])
-        
-        for trabalho in dados.get('results'):
-            descricao_limpa = re.sub(r'<.*?>', '', trabalho.get('body'))
+        writer.writerow(colunas)
+
+        for trabalho in dados.get('results', [dados]):  # Permite receber um único dicionário ou uma lista
+            descricao_limpa = re.sub(r'<.*?>', '', trabalho.get('body', ''))
             salario = trabalho.get('wage')
             titulo = trabalho.get('title')
             empresa = trabalho.get('company', {}).get('name')
             data_de_publicacao = trabalho.get('publishedAt')
             localizacao = ', '.join(location['name'] for location in trabalho.get('locations', []))
-            
+
             linha = [
                 titulo if titulo else 'dados_não_disponíveis',
                 empresa if empresa else 'dados_não_disponíveis',
@@ -105,9 +108,17 @@ def cria_csv(dados, nome_arquivo='trabalhos.csv'):
                 salario if salario else 'dados_não_disponíveis',
                 localizacao if localizacao else 'dados_não_disponíveis'
             ]
-            
+
+            # Adicionar colunas extras ao final da linha
+            if colunas_extra:
+                for coluna in colunas_extra:
+                    valor_extra = trabalho.get(coluna, 'dados_não_disponíveis')
+                    if isinstance(valor_extra, list):
+                        valor_extra = ', '.join(valor_extra)
+                    linha.append(valor_extra)
+
             writer.writerow(linha)
-    
+
     print(f"Dados exportados para {nome_arquivo}")
 
 #b)Listar todos os trabalhos do tipo full-time, publicados por uma determinada empresa, numa determinada localidade e determinado numero.
@@ -169,7 +180,7 @@ def skills(skills: list[str], data_inicial: str, data_final: str,csv: bool = Fal
     trabalhos_filtrados = [] #armazenamento dos trabalhos q requerem aquelas skills
     skills = ','.join(skills) #as strings dadas na lista pelo usuário passam a ser unidas por virgulas 
 
-    if len(skills)==0:
+    if len(skills)!=0:
         params = {
             'limit':1500,
             "q": skills
@@ -382,6 +393,52 @@ def list_skills(trabalho: str, guardar: bool = False):
             writer.writerows(skills_json)
 
         print(f"Dados salvos em {csv_filename}")
+
+#tp2d) Ir buscar informacao extra a um website escolhido por nos
+@app.command()
+def get2(job_id: int,csv: bool = False): 
+    params = {
+    "id": job_id
+}
+    trabalho = request_api("get", params)
+        
+    if "error" in trabalho:
+        print(f"Erro: A vaga com o ID {job_id} não foi encontrada.")
+    else:
+        empresa = trabalho.get('company', {}).get('name', 'Empresa não especificada')
+        empresa=empresa.split(' ')
+        empresa=empresa[0].lower()
+        print(f"Empresa: {empresa}")
+        
+        soup = request_website(url=f'https://companiesmarketcap.com/eur/{empresa}/marketcap/')
+        if soup:
+            try:
+                rank=soup.find('div',class_="line1").text
+                if rank:
+                    trabalho["rank"] = rank
+                else:
+                    trabalho["rank"] = "rank não encontrado."
+                market_cap=soup.find('span',class_="background-ya").text
+                if market_cap:
+                    trabalho["market_cap"] = market_cap
+                else:
+                    trabalho["market_cap"] = "market_cap não encontrado."
+                descricao=soup.find('div',class_="col-lg-4 company-description").text
+                if descricao:
+                    descricao_limpa = re.sub(r'[\n\t]', ' ', descricao)
+                    trabalho["descricao_companiesmarketcap"] = descricao_limpa
+                else:
+                    trabalho["descricao_companiesmarketcap"] = "descricao não encontrada."
+                colunas_extra=["rank","descricao_companiesmarketcap","market_cap"]
+            except Exception as e:
+                print(f"Erro ao processar informações do HTML: {e}")
+        else:
+            trabalho["site_info"] = "Erro ao obter o conteúdo do site."
+            colunas_extra=['site_info']
+        if csv:
+            cria_csv(trabalho, f'{empresa}-companiesmarketcap.csv',colunas_extra)
+
+        print(trabalho)
 
 app()
 
