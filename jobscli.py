@@ -301,6 +301,64 @@ def salary(jobid: int):
             else:
                 print("Salário não encontrado na descrição.")       
 
+#tp2 a) buscar dados de uma empresa com informação do ambition box
+@app.command()
+def get(job_id: int,csv: bool = False): 
+    '''
+    Detalhes sobre uma vaga de trabalho
+    '''
+    params = {
+        "id": job_id
+    }  # dicionário para identificar a vaga para a solicitação à API
+    trabalho = request_api("get", params)
+    
+    if "error" in trabalho:
+        print(f"Erro: A vaga com o ID {job_id} não foi encontrada.")
+    else:
+        empresa = trabalho.get('company', {}).get('name', 'Empresa não especificada')
+        empresa=empresa.split(' ')
+        empresa=empresa[0].lower()
+        print(f"Empresa: {empresa}")
+        
+        # Adicionar informações do site ao JSON
+        soup = request_website(url=f'https://www.ambitionbox.com/overview/{empresa}-overview')
+        if soup:
+            try:
+                avaliacao = soup.find('span', class_="css-1jxf684 text-primary-text font-pn-700 text-[32px] leading-[32px]").text
+                if avaliacao:
+                    trabalho["avaliacao"] = avaliacao
+                else:
+                    trabalho["avaliacao"] = "Avaliação não encontrada."
+
+                descricao_completa=''
+                div_principal = soup.find('div', class_='text-sm font-pn-400 [&_ul]:list-disc [&_ol]:list-[auto] [&_ul]:ml-5 [&_ol]:ml-5').text
+                if div_principal:
+                    trabalho["descricao_ambitionbox"] = div_principal
+                    outras_divs = soup.find_all('div', class_='css-146c3p1 text-sm text-primary-text font-pn-400')
+                    if outras_divs:
+                        descricao_completa += div_principal + " ".join([div.get_text(strip=True) for div in outras_divs])
+                        descricao_completa_limpa=re.sub(r'\n'," ",descricao_completa)
+                        trabalho["descricao_ambitionbox"] = descricao_completa_limpa
+                else:
+                    trabalho["descricao"] = "Descrição não encontrada."
+
+                beneficios = soup.find_all('div', class_='css-146c3p1 font-pn-400 text-sm text-primary-text')
+                if beneficios:
+                    trabalho["beneficios/politicas"] = [beneficio.get_text(strip=True) for beneficio in beneficios]
+                else:
+                    trabalho["beneficios/politicas"] = "Benefícios não encontrados."
+                colunas_extra=["avaliacao","descricao_ambitionbox","beneficios/politicas"]
+            except Exception as e:
+                print(f"Erro ao processar informações do HTML: {e}")
+        else:
+            trabalho["site_info"] = "Erro ao obter o conteúdo do site."
+            colunas_extra=['site_info']
+        if csv:
+            cria_csv(trabalho, f'{empresa}-ambitionbox.csv',colunas_extra)
+
+        print("Detalhes da vaga com informações adicionais:")
+        print(trabalho)
+
 #tp2 b) mostrar contagem de vagas segundo especificacoes
 @app.command()
 def statistics(
@@ -517,6 +575,54 @@ def get2(job_id: int,csv: bool = False):
             cria_csv(trabalho, f'{empresa}-companiesmarketcap.csv',colunas_extra)
 
         print(trabalho)
+
+#tp2 (extra) Ir buscar vagas recomendadas e semelhantes a partir de uma vaga
+@app.command()
+def vagas_recomendadas(job_id: int, limit: int = 5):
+    print(f"Detalhes da vaga com ID {job_id}...")
+
+    # Passo 1: Obter informações da vaga pelo ID
+    job_params = {"id": job_id}
+    job_data = request_api("get", job_params)
+
+    if not job_data:
+        print("Erro: Vaga não encontrada.")
+        return
+
+    print("\nDetalhes da vaga:")
+    print(f"Título: {job_data.get('title', 'Titulo nao especificado')}")
+    print(f"Empresa: {job_data.get('company', {}).get('name', 'Empresa não especificada')}")
+    print(f"Localização: {job_data.get('locations', 'N/A')}")
+    print(f"Descrição: {job_data.get('body', 'N/A')}")
+
+    print("\nA procura de vagas relacionadas...")
+    title = job_data.get('title', '')
+
+    if not title:
+        print("Erro: Título ou categoria da vaga não encontrados para recomendar.")
+        return
+
+    # Dividir o título em palavras e criar a query com vírgulas
+    words = title.split()
+    query = ",".join(words)
+
+    print(f"A procura de vagas relacionadas com as palavras: {query}")
+    title_jobs_params = {"q": query, "limit": limit}  # Busca com palavras separadas por vírgula
+    title_jobs_data = request_api("search", title_jobs_params)
+
+    related_jobs = title_jobs_data.get("results", [])
+    unique_jobs = {job['id']: job for job in related_jobs}.values()
+
+    if not unique_jobs:
+        print("Nenhuma vaga relacionada encontrada.")
+        return
+
+    print("\nVagas relacionadas:")
+    for idx, job in enumerate(unique_jobs, start=1):
+        print(f"{idx}. Título: {job.get('title', 'N/A')}")
+        print(f"   Empresa: {job.get('company', {}).get('name', 'Empresa não especificada')}")
+        print(f"   Localização: {job.get('locations', 'N/A')}")
+        print(f"   Descrição: {job.get('body', 'N/A')}\n")
 
 app()
 
